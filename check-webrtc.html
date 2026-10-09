@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="pt-BR">
+  <meta charset="UTF-8" />
+  <title>Verificação local de WebRTC — Fastshare</title>
+  <style>
+    body {
+      font: 16px system-ui;
+      margin: 40px;
+      color: #18232b;
+    }
+    button {
+      padding: 12px;
+    }
+    video,
+    canvas {
+      width: 240px;
+      display: inline-block;
+    }
+    pre {
+      white-space: pre-wrap;
+      line-height: 1.8;
+    }
+  </style>
+  <h1>Verificação local de WebRTC</h1>
+  <p>
+    Usa vídeo e áudio sintéticos. Não captura tela, câmera ou microfone.
+    Disponível apenas no servidor Vite de desenvolvimento.
+  </p>
+  <button id="run">Verificar vídeo, áudio e troca de transmissão</button>
+  <pre id="result" role="status">Aguardando execução.</pre>
+  <canvas id="source" width="320" height="180"></canvas>
+  <video id="output" muted autoplay playsinline></video>
+  <script type="module">
+    import { ScreenPeers } from "./src/ScreenPeers.js";
+    const button = document.querySelector("#run");
+    const result = document.querySelector("#result");
+    const video = document.querySelector("#output");
+    const canvas = document.querySelector("#source");
+    button.onclick = async () => {
+      button.disabled = true;
+      result.textContent = "Executando…\n";
+      const peers = new Map();
+      const events = new Map();
+      const pending = new Map();
+      const audio = new AudioContext();
+      const oscillator = audio.createOscillator();
+      const destination = audio.createMediaStreamDestination();
+      oscillator.connect(destination);
+      oscillator.start();
+      let tick = 0;
+      const draw = setInterval(() => {
+        const context = canvas.getContext("2d");
+        context.fillStyle = tick++ % 2 ? "#bafa76" : "#101923";
+        context.fillRect(0, 0, 320, 180);
+        context.fillStyle = "#777";
+        context.fillText(`Fastshare ${tick}`, 30, 90);
+      }, 80);
+      const source = canvas.captureStream(10);
+      source.addTrack(destination.stream.getAudioTracks()[0]);
+      const assert = (condition, message) => {
+        if (!condition) throw new Error(message);
+      };
+      const wait = async (check, label) => {
+        const deadline = Date.now() + 25000;
+        while (!(await check())) {
+          if (Date.now() > deadline)
+            throw new Error(`Tempo esgotado: ${label}`);
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      };
+      for (const id of ["presenter-a", "presenter-b", "viewer"]) {
+        events.set(id, {});
+        peers.set(
+          id,
+          new ScreenPeers(
+            (kind, body) => {
+              if (kind === "signal") {
+                const target = peers.get(body.target);
+                const task = pending.get(body.target) || Promise.resolve();
+                pending.set(
+                  body.target,
+                  task.then(() =>
+                    target?.receive(structuredClone({ ...body, from: id })),
+                  ),
+                );
+              }
+              return true;
+            },
+            (patch) => {
+              Object.assign(events.get(id), patch);
+              if (id === "viewer" && patch.remote)
+                video.srcObject = patch.remote;
+            },
+          ),
+        );
+      }
+      peers.get("presenter-a").local = source;
+      peers.get("presenter-b").local = source.clone();
+      const viewer = peers.get("viewer");
+      try {
+        await audio.resume();
+        viewer.watch("presenter-a");
+        await wait(
+          () => events.get("viewer").status === "Transmissão conectada",
+          "primeira conexão",
+        );
+        await wait(async () => {
+          const stats = await viewer.calls.get(viewer.watching).pc.getStats();
+          return [...stats.values()].some(
+            (report) =>
+              report.type === "inbound-rtp" &&
+              report.kind === "video" &&
+              report.framesDecoded > 0,
+          );
+        }, "decodificação de vídeo");
+        assert(
+          events.get("viewer").remote.getAudioTracks().length === 1,
+          "Áudio não recebido.",
+        );
+        const stats = await viewer.calls.get(viewer.watching).pc.getStats();
+        assert(
+          [...stats.values()]
+            .filter((report) => report.type === "local-candidate")
+            .every((report) => report.candidateType === "host"),
+          "Candidato não local encontrado.",
+        );
+        result.textContent +=
+          "OK: vídeo decodificado e áudio recebido, sem servidores ICE.\n";
+        const previous = viewer.watching;
+        viewer.watch("presenter-b");
+        await wait(
+          () => events.get("viewer").status === "Transmissão conectada",
+          "troca de apresentador",
+        );
+        assert(
+          !viewer.calls.has(previous) && viewer.calls.size === 1,
+          "A recepção anterior não foi encerrada.",
+        );
+        await wait(
+          () => peers.get("presenter-a").calls.size === 0,
+          "encerramento do envio anterior",
+        );
+        result.textContent +=
+          "OK: troca de transmissão mantém somente uma recepção.\n";
+        peers.get("presenter-b").stopSharing();
+        await wait(() => viewer.calls.size === 0, "parada do apresentador");
+        result.textContent +=
+          "OK: parada do apresentador encerra a recepção.\nCONCLUÍDO";
+      } catch (error) {
+        result.textContent += `FALHOU: ${error.message}`;
+      } finally {
+        for (const peer of peers.values()) peer.destroy();
+        clearInterval(draw);
+        source.getTracks().forEach((track) => track.stop());
+        oscillator.stop();
+        await audio.close();
+        video.srcObject = null;
+        button.disabled = false;
+      }
+    };
+  </script>
+</html>
