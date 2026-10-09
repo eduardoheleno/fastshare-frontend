@@ -10,6 +10,7 @@ pipeline {
 
   environment {
     IMAGE = 'eduardogomesheleno/fastshare-front'
+    DOCKER_CONFIG = '/tmp/.docker'
   }
 
   stages {
