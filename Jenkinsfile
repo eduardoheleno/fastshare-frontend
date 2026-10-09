@@ -1,34 +1,36 @@
 pipeline {
-  agent {
-    docker {
-      image 'docker:29-cli'
-      args '-v /var/run/docker.sock:/var/run/docker.sock'
-    }
-  }
+  agent any
 
   options { skipDefaultCheckout() }
 
   environment {
     IMAGE = 'eduardogomesheleno/fastshare-front'
-    DOCKER_CONFIG = '/tmp/.docker'
   }
 
   stages {
-    stage('Build image') {
+    stage('Checkout') {
       steps {
         checkout scm
-        sh 'docker build -t "$IMAGE:$BUILD_NUMBER" -t "$IMAGE:latest" .'
       }
     }
 
-    stage('Publish image') {
+    stage('Build and publish image') {
       steps {
         withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_TOKEN')]) {
           sh '''
+            set +x
+            set -eu
+            export DOCKER_CONFIG="$(mktemp -d)"
+            BUILDER=''
+            cleanup() {
+              if [ -n "$BUILDER" ]; then docker buildx rm "$BUILDER" || true; fi
+              rm -rf "$DOCKER_CONFIG"
+            }
+            trap cleanup EXIT
+
             echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
-            docker push "$IMAGE:$BUILD_NUMBER"
-            docker push "$IMAGE:latest"
-            docker logout
+            BUILDER="$(docker buildx create --driver docker-container)"
+            docker buildx build --builder "$BUILDER" --push -t "$IMAGE:$BUILD_NUMBER" -t "$IMAGE:latest" .
           '''
         }
       }
