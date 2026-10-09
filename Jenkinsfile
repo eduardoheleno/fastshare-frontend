@@ -35,5 +35,13 @@ pipeline {
         }
       }
     }
+
+    stage('Trigger deployment') {
+      steps {
+        withCredentials([string(credentialsId: 'fastshare-frontend-webhook', variable: 'PORTAINER_WEBHOOK')]) {
+          sh 'set +x; curl -fsS -X POST "$PORTAINER_WEBHOOK"'
+        }
+      }
+    }
   }
 }
