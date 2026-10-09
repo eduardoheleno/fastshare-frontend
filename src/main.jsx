@@ -439,8 +439,7 @@ function App() {
             Nossa conversa.
           </h1>
           <p>
-            Abra uma sala, compartilhe o link e veja as ideias acontecerem. Sem
-            cadastro, sem câmera, sem complicação.
+            Abra uma sala, compartilhe o link e pronto. Sem cadastro, sem login, sem complicação.
           </p>
           <div className="features">
             <span>↗ Telas compartilhadas</span>
