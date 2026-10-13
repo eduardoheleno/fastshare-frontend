@@ -428,16 +428,9 @@ function App() {
         <a className="brand" href="/">
           fastshare<span>●</span>
         </a>
-        <span>Uma conversa. Um link. Sua tela.</span>
       </nav>
       <section className="hero">
         <div>
-          <span className="eyebrow">MENOS DISTÂNCIA, MAIS IDEIAS</span>
-          <h1>
-            Sua tela.
-            <br />
-            Nossa conversa.
-          </h1>
           <p>
             Abra uma sala, compartilhe o link e pronto. Sem cadastro, sem login, sem complicação.
           </p>
@@ -455,7 +448,7 @@ function App() {
           <p>
             {roomId
               ? "Escolha como quer aparecer para as outras pessoas."
-              : "Comece pelo seu nome. O link do convite vem depois."}
+              : "Comece pelo seu nome."}
           </p>
           <label htmlFor="name">Seu nome</label>
           <input
@@ -486,7 +479,6 @@ function App() {
           </small>
         </form>
       </section>
-      <footer>Feito para compartilhar o momento.</footer>
     </main>
   );
 }
