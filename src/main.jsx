@@ -424,13 +424,13 @@ function App() {
 
   return (
     <main className="landing">
-      <nav>
-        <a className="brand" href="/">
-          fastshare<span>●</span>
-        </a>
-      </nav>
       <section className="hero">
         <div>
+          <h1>
+            <a className="brand" href="/">
+              fastshare<span aria-hidden="true">●</span>
+            </a>
+          </h1>
           <p>
             Abra uma sala, compartilhe o link e pronto. Sem cadastro, sem login, sem complicação.
           </p>

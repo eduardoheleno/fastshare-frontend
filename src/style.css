@@ -114,6 +114,10 @@ small {
   letter-spacing: -3px;
   margin: 24px 0;
 }
+.hero h1 .brand {
+  font-size: inherit;
+  letter-spacing: inherit;
+}
 .hero > div > p {
   font-size: 18px;
   color: #a5b7c6;
